@@ -1,0 +1,102 @@
+version: "3.6"
+services:
+  livy-server:
+    image: credicapital-apache-livy
+    container_name: livy_server
+    build: ./livy-server/
+    command: ["sh", "-c", "/opt/bitnami/livy/bin/livy-server"]
+    user: root
+    volumes:
+      - type: bind
+        source: ./livy-server/conf/
+        target: /opt/bitnami/livy/conf/
+      - type: bind
+        source: ./livy-server/target/
+        target: /target/
+      - type: bind
+        source: ./livy-server/data/
+        target: /data/
+    ports:
+      - '8998:8998'
+    depends_on:
+      - master
+      - worker-1
+      - worker-2
+
+  mongodb:
+    image: "nertworkweb/mongodb-no-avx"
+    command: ["--bind_ip_all", "--port", "27017"]
+    ports:
+      - 27017:27017
+    volumes:
+      - "mongodb_data:/data/db"
+    restart: "on-failure"
+
+  master:
+    image: credicapital-apache-spark:1.0.0
+    command: bin/spark-class org.apache.spark.deploy.master.Master -h master
+    hostname: master
+    environment:
+      MASTER: spark://master:7077
+      SPARK_CONF_DIR: /conf
+      SPARK_PUBLIC_DNS: 10.0.2.113
+    expose:
+      - 7001
+      - 7002
+      - 7003
+      - 7004
+      - 7005
+      - 7077
+      - 6066
+    ports:
+      - 8080:8080
+    volumes:
+      - ./conf/master:/conf
+      - ./data:/tmp/data
+    links:
+      - mongodb:mongodb
+ 
+  worker-1:
+    image: credicapital-apache-spark:1.0.0
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://master:7077
+    hostname: worker-1
+    environment:
+      SPARK_CONF_DIR: /conf
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 1g
+      SPARK_WORKER_PORT: 8881
+      SPARK_WORKER_WEBUI_PORT: 8081
+      SPARK_PUBLIC_DNS: 10.0.2.113
+    links:
+      - master
+    expose:
+      - 8881
+    ports:
+      - 8081:8081
+    volumes:
+      - ./conf/worker:/conf
+      - ./data:/tmp/data
+
+  worker-2:
+    image: credicapital-apache-spark:1.0.0
+    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://master:7077
+    hostname: worker-2
+    environment:
+      SPARK_CONF_DIR: /conf
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 1g
+      SPARK_WORKER_PORT: 8882
+      SPARK_WORKER_WEBUI_PORT: 8082
+      SPARK_PUBLIC_DNS: 10.0.2.113
+    links:
+      - master
+    expose:
+      - 8882
+    ports:
+      - 8082:8082
+    volumes:
+      - ./conf/worker:/conf
+      - ./data:/tmp/data
+
+volumes:
+  mongodb_data:

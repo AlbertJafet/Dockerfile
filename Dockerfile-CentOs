@@ -1,0 +1,55 @@
+FROM centos:6
+
+# Instalar dependencias adicionales
+RUN yum install -y wget curl java-11-openjdk-headless procps-ng python3 python3-setuptools python3-pip which && \
+    yum clean all && \
+    rm -rf /var/cache/yum/*
+
+# Configurar locales
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+
+# Instalar dependencias de Hadoop y Spark
+RUN yum install -y java-11-openjdk-devel && \
+    yum clean all && \
+    rm -rf /var/cache/yum/*
+
+# Configurar JAVA_HOME
+ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk
+
+# Instalar Hadoop
+ENV HADOOP_VERSION 3.3.6
+ENV HADOOP_HOME /usr/hadoop-$HADOOP_VERSION
+ENV PATH $PATH:$HADOOP_HOME/bin
+RUN curl -sL --retry 3 \
+  "https://dlcdn.apache.org/hadoop/common/hadoop-3.3.6/hadoop-3.3.6-src.tar.gz" \
+  | tar xzf - -C /usr/ \
+  && rm -rf $HADOOP_HOME/share/doc 
+
+# Instalar Spark
+ENV SPARK_VERSION 3.5.1
+ENV SPARK_HOME /usr/spark-${SPARK_VERSION}
+ENV PATH $PATH:${SPARK_HOME}/bin
+RUN curl -sL --retry 3 "https://dlcdn.apache.org/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz" -o spark-3.5.1-bin-hadoop3.tgz \
+    && tar xzf spark-3.5.1-bin-hadoop3.tgz -C /usr/ \
+    && rm spark-3.5.1-bin-hadoop3.tgz \
+    && mv /usr/spark-3.5.1-bin-hadoop3 /usr/spark-3.5.1
+
+# Instalar Sqoop
+ENV SQOOP_VERSION 1.4.7
+ENV SQOOP_HOME /usr/sqoop-${SQOOP_VERSION}
+ENV PATH $PATH:${SQOOP_HOME}/bin
+RUN curl -sL --retry 3 "https://dlcdn.apache.org/sqoop/${SQOOP_VERSION}/sqoop-${SQOOP_VERSION}.bin__hadoop-2.6.0.tar.gz" -o sqoop-${SQOOP_VERSION}.tar.gz \
+    && file sqoop-${SQOOP_VERSION}.tar.gz \
+    && cat sqoop-${SQOOP_VERSION}.tar.gz | head -n 10 \
+    && tar xzf sqoop-${SQOOP_VERSION}.tar.gz -C /usr/ || echo "Failed to extract Sqoop"
+RUN ls -l /usr/
+RUN mv /usr/sqoop-${SQOOP_VERSION}.bin__hadoop-2.6.0 /usr/sqoop || echo "Failed to move Sqoop directory"
+RUN rm sqoop-${SQOOP_VERSION}.tar.gz
+
+WORKDIR $SPARK_HOME
+COPY load-spark-env.sh $SPARK_HOME/bin
+RUN chmod +x $SPARK_HOME/bin/load-spark-env.sh
+
+CMD ["bin/spark-class", "org.apache.spark.deploy.master.Master"]
