@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  splunk:
+    image: splunk/splunk:latest
+    container_name: splunk
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_PASSWORD=KarmaDev99  # Cambia esto a una contraseña segura
+    ports:
+      - "8000:8000"  # Puerto para la interfaz web de Splunk
+      - "8088:8088"  # Puerto para el HEC (HTTP Event Collector)
+      - "8089:8089"  # Puerto para la administración
+    volumes:
+      - splunk-data:/opt/splunk/var
+    restart: always
+
+volumes:
+  splunk-data:
